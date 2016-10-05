@@ -1,6 +1,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeOperators             #-}
 
 
@@ -34,7 +35,7 @@ module Data.Daft.Vinyl.FieldCube (
 
 
 import Control.Applicative (liftA2)
-import Data.Daft.DataCube (DataCube, FunctionCube, Joinable, TableCube)
+import Data.Daft.DataCube (DataCube, FunctionCube, Join, Joinable, TableCube)
 import Data.Daft.TypeLevel (Intersection)
 import Data.Daft.Vinyl.TypeLevel (RDistinct, RJoin(rjoin), RUnion(runion))
 import Data.Maybe (fromMaybe)
@@ -119,7 +120,7 @@ type FieldGregator as bs = C.Gregator (FieldRec as) (FieldRec bs)
 ω = S.map rcast . C.knownKeys
 
 
-(⋈) :: (Eq (FieldRec (Intersection kLeft kRight)), Intersection kLeft kRight ⊆ kLeft, Intersection kLeft kRight ⊆ kRight, kLeft ⊆ k, kRight ⊆ k, RUnion kLeft kRight k, RUnion vLeft vRight v, RDistinct vLeft vRight, Ord (FieldRec kLeft), Ord (FieldRec kRight), Ord (FieldRec k), DataCube cubeLeft, DataCube cubeRight, DataCube cube, Joinable cubeLeft cubeRight cube) -- FIXME: This can be simplified somewhat.
+(⋈) :: (Eq (FieldRec (Intersection kLeft kRight)), Intersection kLeft kRight ⊆ kLeft, Intersection kLeft kRight ⊆ kRight, kLeft ⊆ k, kRight ⊆ k, RUnion kLeft kRight k, RUnion vLeft vRight v, RDistinct vLeft vRight, Ord (FieldRec kLeft), Ord (FieldRec kRight), Ord (FieldRec k), DataCube cubeLeft, DataCube cubeRight, DataCube cube, Join cubeLeft cubeRight ~ cube, Joinable cubeLeft cubeRight cube) -- FIXME: This can be simplified somewhat.
     => FieldCube cubeLeft kLeft vLeft -> FieldCube cubeRight kRight vRight -> FieldCube cube k v
 (⋈) = C.join (C.Joiner rjoin rcast rcast) runion
 infixl 6 ⋈

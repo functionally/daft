@@ -1,21 +1,21 @@
+{-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE RecordWildCards        #-}
-{-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TupleSections          #-}
 {-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE UndecidableInstances   #-}
 
 
 module Data.Daft.DataCube (
 -- * Types
   DataCube(..)
 , TableCube
-, Joinable(..)
 , FunctionCube
 , Rekeyer(..)
 , Gregator(..)
 , Joiner(..)
+, Join
+, Joinable
 -- * Conversion
 , fromTable
 , fromTableM
@@ -25,6 +25,7 @@ module Data.Daft.DataCube (
 -- * Aggregation
 , fromKnownKeys
 -- * Joins
+, join
 , semijoin
 , antijoin
 ) where
@@ -36,7 +37,6 @@ import Control.DeepSeq (NFData(..))
 import Control.Monad (guard)
 import Data.Map.Strict (Map)
 import Data.Maybe (catMaybes, isJust, mapMaybe)
-import Data.Proxy (Proxy(..))
 import Data.Set (Set)
 import GHC.Exts (IsList(Item))
 
@@ -116,21 +116,19 @@ type family Join c1 c2 :: * -> * -> * where
   Join a b = FunctionCube
 
 
+join :: (Ord k1, Ord k2, Ord k3, Joinable c1 c2 (Join c1 c2)) => Joiner k1 k2 k3 -> (v1 -> v2 -> v3) -> c1 k1 v1 -> c2 k2 v2 -> Join c1 c2 k3 v3
+join = join'
+
+
 class Joinable c1 c2 c3 where
-  join :: (Ord k1, Ord k2, Ord k3) => Joiner k1 k2 k3 -> (v1 -> v2 -> v3) -> c1 k1 v1 -> c2 k2 v2 -> c3 k3 v3
+  -- data . . . ::
+  join' :: (Ord k1, Ord k2, Ord k3) => Joiner k1 k2 k3 -> (v1 -> v2 -> v3) -> c1 k1 v1 -> c2 k2 v2 -> c3 k3 v3
 
-instance (Join c1 c2 ~ c3, JoinStyle c1 c2 ~ flag, Joinable' flag c1 c2 c3) => Joinable c1 c2 c3 where
-  join = join' (Proxy :: Proxy flag)
+instance (JoinStyle c1 c1 ~ JoinSelf, DataCube c1) => Joinable c1 c1 c1 where
+  join' = joinSelf
 
-
-class Joinable' flag c1 c2 c3 where
-  join' :: (Ord k1, Ord k2, Ord k3) => Proxy flag -> Joiner k1 k2 k3 -> (v1 -> v2 -> v3) -> c1 k1 v1 -> c2 k2 v2 -> c3 k3 v3
-
-instance DataCube c1 => Joinable' JoinSelf c1 c1 c1 where
-  join' _ = joinSelf
-
-instance (DataCube c1, DataCube c2) => Joinable' JoinAny c1 c2 FunctionCube where
-  join' _ = joinAny
+instance (JoinStyle c1 c2 ~ JoinAny, DataCube c1, DataCube c2) => Joinable c1 c2 FunctionCube where
+  join' = joinAny
 
 
 data JoinSelf
