@@ -19,10 +19,9 @@ module Data.Daft.Vinyl.FieldCube.IO (
 
 
 import Control.Monad.Except (MonadError, MonadIO, throwError)
-import Data.Daft.DataCube (DataCube, fromFunction)
 import Data.Daft.Source (DataSource(..))
 import Data.Daft.TypeLevel (Union)
-import Data.Daft.Vinyl.FieldCube (FieldCube, type (+↝))
+import Data.Daft.Vinyl.FieldCube (type (+↝))
 import Data.Daft.Vinyl.FieldRec (Labeled)
 import Data.Daft.Vinyl.FieldRec.Instances ()
 import Data.Daft.Vinyl.FieldRec.IO (ReadFieldRec, ShowFieldRec, readFieldRecs, readFieldRecFile, readFieldRecSource, showFieldRecs, writeFieldRecFile, writeFieldRecSource)
@@ -36,6 +35,7 @@ import Data.Vinyl.Lens (type (⊆), rcast)
 import Data.Vinyl.TypeLevel (type (++))
 
 import qualified Data.Daft.DataCube as C (fromTable, toKnownTable)
+import qualified Data.Map.Strict as M (empty)
 
 
 readFieldCube :: forall ks vs s e m . (ks ⊆ Union ks vs, vs ⊆ Union ks vs, Ord (FieldRec ks), Eq s, IsString s, ToString s, IsString e, MonadError e m, Labeled (FieldRec (Union ks vs)), ReadFieldRec (Union ks vs)) => [[s]] -> m (ks +↝ vs)
@@ -56,12 +56,11 @@ readFieldCubeSource =
     . readFieldRecSource
 
 
-readFieldCubeSource' :: forall ks vs e m a cube . (ks ⊆ Union ks vs, vs ⊆ Union ks vs, Ord (FieldRec ks), Unknown (FieldRec vs), IsString e, MonadError e m, MonadIO m, Labeled (FieldRec (Union ks vs)), ReadFieldRec (Union ks vs)) => DataSource a -> m (FieldCube cube ks vs)
-readFieldCubeSource' = undefined
---readFieldCubeSource' FileData{..}    = fmap (C.fromTable (rcast :: FieldRec (Union ks vs) -> FieldRec ks) (rcast :: FieldRec (Union ks vs) -> FieldRec vs)) $ readFieldRecFile filePath
---readFieldCubeSource' TextData{..}    = fmap (C.fromTable (rcast :: FieldRec (Union ks vs) -> FieldRec ks) (rcast :: FieldRec (Union ks vs) -> FieldRec vs)) . readFieldRecs $ fromTabbeds parsableText
---readFieldCubeSource' BuiltinData{..} = throwError "Cannot read records from built-in data source."
---readFieldCubeSource' NoData          = return . fromFunction . const $ return unknown 
+readFieldCubeSource' :: forall ks vs e m a . (ks ⊆ Union ks vs, vs ⊆ Union ks vs, Ord (FieldRec ks), Unknown (FieldRec vs), IsString e, MonadError e m, MonadIO m, Labeled (FieldRec (Union ks vs)), ReadFieldRec (Union ks vs)) => DataSource a -> m (ks +↝ vs)
+readFieldCubeSource' FileData{..}    = C.fromTable (rcast :: FieldRec (Union ks vs) -> FieldRec ks) (rcast :: FieldRec (Union ks vs) -> FieldRec vs) <$> readFieldRecFile filePath
+readFieldCubeSource' TextData{..}    = fmap (C.fromTable (rcast :: FieldRec (Union ks vs) -> FieldRec ks) (rcast :: FieldRec (Union ks vs) -> FieldRec vs)) . readFieldRecs $ fromTabbeds parsableText
+readFieldCubeSource' BuiltinData{..} = throwError "Cannot read records from built-in data source."
+readFieldCubeSource' NoData          = return M.empty
 
 
 showFieldCube :: forall ks vs . (Ord (FieldRec ks), Labeled (FieldRec (ks ++ vs)), ShowFieldRec (ks ++ vs)) => ks +↝ vs -> [[String]]

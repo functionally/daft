@@ -1,11 +1,13 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RankNTypes       #-}
-{-# LANGUAGE TypeOperators    #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE TypeOperators             #-}
 
 
 module Data.Daft.Vinyl.FieldCube (
 -- * Types
-  type (+↝)
+  type (↝)(..)
+, type (+↝)
 , type (-↝)
 , FieldCube
 , FieldGregator
@@ -44,6 +46,9 @@ import Data.Vinyl.TypeLevel (type (++))
 
 import qualified Data.Daft.DataCube as C -- (Gregator(..), Joiner(Joiner), aggregateWithKey, antijoin, disaggregateWithKey, evaluate, fromTable, join, knownKeys, projectWithKey, reify, selectWithKey, semijoin, toKnownTable, toTable)
 import qualified Data.Set as S (fromDistinctAscList, map, toAscList)
+
+
+data ks ↝ vs = forall cube . DataCube cube => SomeFieldCube {someFieldCube :: cube (FieldRec ks) (FieldRec vs)}
 
 
 type ks +↝ vs = TableCube (FieldRec ks) (FieldRec vs)
