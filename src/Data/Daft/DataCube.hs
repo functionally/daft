@@ -12,6 +12,7 @@ module Data.Daft.DataCube (
   DataCube(..)
 , TableCube
 , Joinable(..)
+, Join
 , FunctionCube
 , Rekeyer(..)
 , Gregator(..)
@@ -111,7 +112,7 @@ joinAny Joiner{..} combiner cube1 cube2 =
       return $ v1 `combiner` v2
 
 
-type family Join c1 c2 :: * -> * -> * where
+type family Join c1 c2 where
   Join a a = a
   Join a b = FunctionCube
 
