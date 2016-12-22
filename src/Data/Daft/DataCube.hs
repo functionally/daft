@@ -1,5 +1,7 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE ConstraintKinds       #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 
 module Data.Daft.DataCube (
@@ -13,77 +15,73 @@ module Data.Daft.DataCube (
 
 import Control.Arrow ((&&&))
 import Data.Maybe (isJust, mapMaybe)
-import Data.Set (Set)
-import GHC.Exts (IsList(Item))
-
-import qualified Data.Set as S (null, size)
-import qualified GHC.Exts as L (IsList(..))
+import GHC.Exts (Constraint)
 
 
-class DataCube (cube :: * -> * -> *) where
+class DataCube (cube :: (* -> Constraint) -> * -> * -> *) where
 
-  cmap :: (v -> v') -> cube k v -> cube k v'
+  cmap :: (v -> v') -> cube kc k v -> cube kc k v'
 
-  cempty :: Ord k => cube k v
+  cempty :: kc k => cube kc k v
 
-  cappend :: Ord k => cube k v -> cube k v -> cube k v
+  cappend :: kc k => cube kc k v -> cube kc k v -> cube kc k v
 
-  evaluate :: Ord k => cube k v -> k -> Maybe v
+  evaluate :: kc k => cube kc k v -> k -> Maybe v
 
-  evaluable :: Ord k => cube k v -> k -> Bool
+  evaluable :: kc k => cube kc k v -> k -> Bool
   evaluable = (isJust .) . evaluate
 
-  select :: (v -> Bool) -> cube k v -> cube k v
+  select :: (v -> Bool) -> cube kc k v -> cube kc k v
   select = selectWithKey . const
 
-  selectWithKey :: (k -> v -> Bool) -> cube k v -> cube k v
+  selectWithKey :: (k -> v -> Bool) -> cube kc k v -> cube kc k v
 
-  selectKeys :: (k -> Bool) -> cube k v -> cube k v
+  selectKeys :: (k -> Bool) -> cube kc k v -> cube kc k v
   selectKeys = selectWithKey . (const .)
 
-  selectRange :: Ord k => Maybe k -> Maybe k -> cube k v -> cube k v
+  selectRange :: Ord k => Maybe k -> Maybe k -> cube kc k v -> cube kc k v
 
-  toTable :: (IsList ks, k ~ Item ks, IsList as, a ~ Item as, Ord k) => (k -> v -> a) -> ks -> cube k v -> as
-  toTable combiner ks cube = L.fromList . mapMaybe (evaluate $ projectWithKey combiner cube) $ L.toList ks
+  toTable :: kc k => (k -> v -> a) -> [k] -> cube kc k v -> [a]
+  toTable combiner ks cube = mapMaybe (evaluate $ projectWithKey combiner cube) ks
 
-  knownKeys :: cube k v -> Set k
+  knownKeys :: cube kc k v -> [k]
 
-  withKnown :: cube k v -> (Set k -> cube k v -> r) -> r
+  withKnown :: cube kc k v -> ([k] -> cube kc k v -> r) -> r
   withKnown cube f = f (knownKeys cube) cube
 
-  knownSize :: cube k v -> Int
-  knownSize = S.size . knownKeys
+  knownSize :: cube kc k v -> Int
+  knownSize = length . knownKeys
 
-  knownEmpty :: cube k v -> Bool
-  knownEmpty = S.null . knownKeys
+  knownEmpty :: cube kc k v -> Bool
+  knownEmpty = null . knownKeys
 
-  toKnownTable :: (IsList as, a ~ Item as, Ord k) => (k -> v -> a) -> cube k v -> as
+  toKnownTable :: kc k => (k -> v -> a) -> cube kc k v -> [a]
   toKnownTable f = uncurry (toTable f) . (knownKeys &&& id)
 
-  selectKnownMinimum :: Ord k => cube k v -> Maybe (k, v)
+  selectKnownMinimum :: Ord k => cube kc k v -> Maybe (k, v)
 
-  selectKnownMaximum :: Ord k => cube k v -> Maybe (k, v)
+  selectKnownMaximum :: Ord k => cube kc k v -> Maybe (k, v)
 
-  project :: (v -> v') -> cube k v -> cube k v'
+  project :: (v -> v') -> cube kc k v -> cube kc k v'
   project = projectWithKey . const
 
-  projectWithKey :: (k -> v -> v') -> cube k v -> cube k v'
+  projectWithKey :: (k -> v -> v') -> cube kc k v -> cube kc k v'
 
-  projectKnownKeys :: (IsList ks', k' ~ Item ks') => (k -> k') -> cube k v -> ks'
+  projectKnownKeys :: (k -> k') -> cube kc k v -> ks'
 
-  rekey :: Ord k' => Rekeyer k k' -> cube k v -> cube k' v
+  rekey :: kc' k' => Rekeyer k k' -> cube kc k v -> cube kc' k' v
 
-  aggregate :: Ord k' => Gregator k k' -> ([v] -> v') -> cube k v -> cube k' v'
+  aggregate :: kc' k' => Gregator k k' -> ([v] -> v') -> cube kc k v -> cube kc' k' v'
   aggregate = (. const) . aggregateWithKey
 
-  aggregateWithKey :: Ord k' => Gregator k k' -> (k' -> [v] -> v') -> cube k v -> cube k' v'
+  aggregateWithKey :: kc' k' => Gregator k k' -> (k' -> [v] -> v') -> cube kc k v -> cube kc' k' v'
 
-  disaggregate :: Ord k' => Gregator k' k -> (v -> v') -> cube k v -> cube k' v'
+  disaggregate :: kc' k' => Gregator k' k -> (v -> v') -> cube kc k v -> cube kc' k' v'
   disaggregate = (. const) . disaggregateWithKey
   
-  disaggregateWithKey :: Ord k' => Gregator k' k -> (k' -> v -> v') -> cube k v -> cube k' v'
+  disaggregateWithKey :: kc' k' => Gregator k' k -> (k' -> v -> v') -> cube kc k v -> cube kc' k' v'
 
-  joinSelf :: (Ord k1, Ord k2, Ord k3) => Joiner k1 k2 k3 -> (v1 -> v2 -> v3) -> cube k1 v1 -> cube k2 v2 -> cube k3 v3
+  joinSelf :: (kc k1, kc k2, kc k3) => Joiner k1 k2 k3 -> (v1 -> v2 -> v3) -> cube kc k1 v1 -> cube kc k2 v2 -> cube kc k3 v3
 
 
 data Rekeyer a b =

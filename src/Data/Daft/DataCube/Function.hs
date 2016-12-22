@@ -21,7 +21,7 @@ import qualified Data.Set as S (empty)
 import qualified GHC.Exts as L (IsList(..))
 
 
-newtype FunctionCube k v = FunctionCube {function :: k -> Maybe v}
+newtype FunctionCube kc k v = FunctionCube {function :: k -> Maybe v}
 
 
 instance DataCube FunctionCube where
